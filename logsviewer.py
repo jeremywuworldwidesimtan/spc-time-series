@@ -3,18 +3,6 @@ import tkinter as Tk
 from tkinter import ttk
 from tkinter import filedialog
 
-tk = Tk.Tk()
-hash = ""
-
-if (len(sys.argv) < 2): # second argv is name of file
-    file = filedialog.askopenfilename()
-    # file = "tesst.txt"
-else:
-    file = sys.argv[1]
-
-log_backend = []
-filter = ['','']
-
 def changeFile():
     global file
     file = filedialog.askopenfilename()
@@ -91,6 +79,18 @@ def quit_prog(tk):
     tk.quit()
 
 if __name__ == '__main__':
+    tk = Tk.Tk()
+    hash = ""
+
+    if (len(sys.argv) < 2): # second argv is name of file
+        file = filedialog.askopenfilename()
+        # file = "tesst.txt"
+    else:
+        file = sys.argv[1]
+
+    log_backend = []
+    filter = ['','']
+
     # SPC alert tabs
     spc_alerts = Tk.Text(tk)
     yscrollbar1 = ttk.Scrollbar(tk, orient = 'vertical', command = spc_alerts.yview)

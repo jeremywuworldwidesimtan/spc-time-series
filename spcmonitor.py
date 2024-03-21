@@ -5,71 +5,26 @@ import numpy as np
 import pandas as pd
 import tkinter as Tk
 from tkinter import ttk
-import random, statistics, math, datetime, csv, sys, hashlib
-
-# Initial
-random.seed(42)
-WRITE_DATA = True
-
-# Global
-global dadu
-global timeint
-global ani
-global spcalerts
-global spcendpoints # This is to prevent repeated alerts when data points that triggered SPC goes off the screen and the algorithm recalculates and spams the alert messages
-global window_size
-window_size = 30
-spcalerts = set()
-spcendpoints = set()
-plt.style.use('ggplot')
-
-# Matplotlib
-fig1, ax = plt.subplots()
-fig2, a3 = plt.subplots()
-fig3, a5 = plt.subplots()
-fig4, a7 = plt.subplots()
-xs = []
-ys = []
-
-# Tkinter
-root = Tk.Tk()
-root.grid_rowconfigure(1, weight=1)
-root.grid_columnconfigure(0, weight=1)
-
-# Save files
-date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
-# datefile = pd.read_csv(data)
-
-# Use default values if none is specified
-if len(sys.argv) < 2:
-    fil = "test.csv"
-else:
-    fil = sys.argv[1]
-
-if len(sys.argv) < 3 or not (sys.argv[2].isnumeric()): # third argv is the speed
-    timeint = int(0.5 * 1000)
-else:
-    timeint = int(int(sys.argv[2]) * 1000)
-
-if len(sys.argv) < 4: # Fourth argv is the logfile (this is useful for SPC alerts system that we going to build later)
-    logfile = "LOG-" + date_time + ".txt"
-else:
-    logfile = sys.argv[3]
+import random, statistics, math, datetime, sys, hashlib, snapshot, configparser
 
 # Open the file and run initial md5
 def init_load(csv):
     with open(csv, "rb") as f:
         hash = hashlib.md5(f.read()).hexdigest()
-        print(hash)
+        print("A file has been loaded succesfully")
+
+        load(csv)
 
 # Load the file data into the program
 def load(csv):
+    global xs, ys
     try:
         with pd.read_csv(csv, chunksize=1, header=None) as reader:
             for chunk in reader:
                 if chunk[0].to_numpy().item() not in xs: # fix a graphical error
-                    xs.append(chunk[0].to_numpy().item())
-                    ys.append(chunk[1].to_numpy().item())
+                    xs = np.append(xs, chunk[0].to_numpy().item())
+                    ys = np.append(ys, chunk[1].to_numpy().item())
+                    # print("Loaded XS/YS", xs, ys)
                 # print(chunk[0].to_numpy().item())
     except:
         pass
@@ -99,12 +54,29 @@ def sigma_lines(axe, avg, sigma, x = [0]):
     axe.axhline(y=avg, c="red", linestyle='dashed')
     axe.text(x[0], math.ceil(avg), "Median: %.4f; StDev: %.4f" % (avg, sigma))
 
+def set_labels(axe, ttile):
+    global xa_label, ya_label
+    axe.set_xlabel(xa_label)
+    axe.set_ylabel(ya_label)
+    axe.set_title(ttile)
+
+def snapshot_check(index, snap_count, snapshot_data):
+    global fil
+    if snapshot.validate_snapshot(snapshot_data, fil, index, snap_count):
+        snapmsg = f"Snapshot successfully validated at point {index} to {index+snap_count}"
+        if snapmsg not in spcalerts:
+                spcalerts.add(snapmsg)
+                print(snapmsg)
+                if WRITE_DATA:
+                    with open(logfile, 'a+') as lf:
+                        lf.write(snapmsg + '\n')
+
 def rule1(valueList, indexList, limits, plot, var_name):
     ucl = limits[0]
     lcl = limits[1]
     for i,y in enumerate(valueList):
         if y > ucl or y < lcl:
-            plot.scatter(indexList[i], valueList[i], c="r")
+            plot.scatter(indexList[i], valueList[i], c="b", zorder=420)
             rule1msg = f"({var_name}) ALERT: Rule 1 triggered at point {indexList[i]}"
             if rule1msg not in spcalerts:
                 spcalerts.add(rule1msg)
@@ -117,8 +89,8 @@ def rule2(valueList, indexList, avg, stdev, plot, var_name):
     for i,y in enumerate(valueList):
         if len(valueList) > 2:
             if (valueList[i-1] > avg + (stdev * 2) or valueList[i-1] < avg - (stdev * 2)) and (valueList[i] > avg + (stdev * 2) or valueList[i] < avg - (stdev * 2)):
-                plot.scatter(indexList[i], valueList[i], c="r")
-                plot.scatter(indexList[i-1], valueList[i-1], c="r")
+                plot.scatter(indexList[i], valueList[i], c="b", zorder=420)
+                plot.scatter(indexList[i-1], valueList[i-1], c="b", zorder=420)
                 rule2msg = f"({var_name}) ALERT: Rule 2 triggered at point {indexList[i-1]} & {indexList[i]}"
                 if rule2msg not in spcalerts:
                     spcalerts.add(rule2msg)
@@ -146,7 +118,7 @@ def rule3(valueList, indexList, avg, stdev, plot, var_name):
         if st is not {} and len(st) == 4:
             rule3msg = f"({var_name}) ALERT: Rule 3 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
-                plot.scatter(indexList[k], valueList[k], c="r")
+                plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule3msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
                 spcalerts.add(rule3msg)
                 print(rule3msg)
@@ -176,7 +148,7 @@ def rule4(valueList, indexList, avg, plot, var_name):
         if st is not {} and len(st) >= 8:
             rule4msg = f"({var_name}) ALERT: Rule 4 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
-                plot.scatter(indexList[k], valueList[k], c="r")
+                plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule4msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
                 spcalerts.add(rule4msg)
                 print(rule4msg)
@@ -231,7 +203,7 @@ def rule5(valueList, indexList, plot, var_name):
         if st is not {} and len(st) == 6:
             rule5msg = f"({var_name}) ALERT: Rule 5 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
-                plot.scatter(indexList[k], valueList[k], c="r")
+                plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule5msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
                 spcalerts.add(rule5msg)
                 print(rule5msg)
@@ -255,7 +227,7 @@ def rule6(valueList, indexList, avg, stdev, plot, var_name):
         if st is not {} and len(st) >= 15:
             rule6msg = f"({var_name}) ALERT: Rule 6 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
-                plot.scatter(indexList[k], valueList[k], c="r")
+                plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule6msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
                 spcalerts.add(rule6msg)
                 print(rule6msg)
@@ -290,7 +262,7 @@ def rule7(valueList, indexList, plot, var_name):
         if st is not {} and len(st) >= 14:
             rule7msg = f"({var_name}) ALERT: Rule 7 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
-                plot.scatter(indexList[k], valueList[k], c="r")
+                plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule7msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
                 spcalerts.add(rule7msg)
                 print(rule7msg)
@@ -315,7 +287,7 @@ def rule8(valueList, indexList, avg, stdev, plot, var_name):
         if st is not {} and len(st) >= 8:
             rule8msg = f"({var_name}) ALERT: Rule 8 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
-                plot.scatter(indexList[k], valueList[k], c="r")
+                plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule8msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
                 spcalerts.add(rule8msg)
                 print(rule8msg)
@@ -324,25 +296,27 @@ def rule8(valueList, indexList, avg, stdev, plot, var_name):
                     with open(logfile, 'a+') as lf:
                         lf.write(rule8msg + '\n')
 
-def animate(i, xs, ys):
+def data_range(data_list, wsize):
+    return data_list[-(wsize):]
+
+def animate(i):
+    global xs, ys
     # Limit x and y lists to 30 items
-    # print(xs)
-    xs = xs[-window_size:]
-    ys = ys[-window_size:]
-    # print(xs)
+    # xs = xs[-window_size:]
+    # ys = ys[-window_size:]
 
     # Draw x and y lists
+    xsdr = data_range(xs,window_size)
+    ysdr = data_range(ys,window_size)
     ax.clear()
-    ax.plot(xs, ys)
-
-    # print("RAW", xs)
-    # print(ys)
-    # print([i, ys[-1]])
+    set_labels(ax, "RAW DATA")
+    ax.plot(xsdr, ysdr)
+    # print("RAW XS/YS:", xs, ys)
 
     if len(ys) > 2:
         # Build MA3, MA5, MA7
-        avg = np.nanmean(ys)
-        stdev = statistics.stdev(ys)
+        avg = np.nanmean(ysdr)
+        stdev = statistics.stdev(ysdr)
         # avg = (a+b) / 2
         # stdev = math.sqrt(((b-a) ** 2)/12)
         ucl = avg + (stdev * 3)
@@ -350,7 +324,7 @@ def animate(i, xs, ys):
         # print(avg, stdev)
 
         # Sigma lines
-        sigma_lines(ax, avg, stdev, xs)
+        sigma_lines(ax, avg, stdev, xsdr)
 
         # Moving averages
         '''
@@ -374,32 +348,35 @@ def animate(i, xs, ys):
 '''
         # Check for SPC rules
         # Rule 1
-        rule1(ys, xs, [ucl,lcl], ax, "RAW")
+        rule1(ysdr, xsdr, [ucl,lcl], ax, "RAW")
 
         # Rule 2
-        rule2(ys, xs, avg, stdev, ax, "RAW")
+        rule2(ysdr, xsdr, avg, stdev, ax, "RAW")
 
         # Rule 3
-        rule3(ys, xs, avg, stdev, ax, "RAW")
+        rule3(ysdr, xsdr, avg, stdev, ax, "RAW")
 
         # Rule 4
-        rule4(ys, xs, avg, ax, "RAW")
+        rule4(ysdr, xsdr, avg, ax, "RAW")
 
         # Rule 5
-        rule5(ys, xs, ax, "RAW")
+        rule5(ysdr, xsdr, ax, "RAW")
 
         # Rule 6
-        rule6(ys, xs, avg, stdev, ax, "RAW")
+        rule6(ysdr, xsdr, avg, stdev, ax, "RAW")
         
         # Rule 7
-        rule7(ys, xs, ax, "RAW")
+        rule7(ysdr, xsdr, ax, "RAW")
 
         # Rule 8
-        rule8(ys, xs, avg, stdev, ax, "RAW")
+        rule8(ysdr, xsdr, avg, stdev, ax, "RAW")
 
-def animate_a3(i, xs, ys):
+def animate_a3(i):
+    global xs, ys
     if len(ys) > 2:
-        pos = (xs[2:])[-window_size:]
+        pos = (xs[2:])
+        podr = data_range(pos,window_size)
+
         avg = np.nanmean(ys)
         stdev = statistics.stdev(ys)
         # avg = (a+b) / 2
@@ -410,39 +387,44 @@ def animate_a3(i, xs, ys):
         # Moving averages
         if len(ys) > 3:
             a3.clear()
-            moving3 = moving_average(ys,3)[-window_size:]
+            moving3 = moving_average(ys,3)
+            m3dr = data_range(moving3,window_size)
             # print("MA3", pos)
-            a3.plot(pos, moving3)
-            sigma_lines(a3, np.nanmean(moving3), statistics.stdev(moving3), pos)
+            set_labels(a3, "3PT MOVING AVG")
+            a3.plot(podr, m3dr)
+            sigma_lines(a3, np.nanmean(m3dr), statistics.stdev(m3dr), podr)
 
             # Check for SPC rules
             # Rule 1
-            rule1(moving3, pos, [ucl,lcl], a3, "A3")
+            rule1(m3dr, podr, [ucl,lcl], a3, "A3")
 
             # Rule 2
-            rule2(moving3, pos, avg, stdev, a3, "A3")
+            rule2(m3dr, podr, avg, stdev, a3, "A3")
 
             # Rule 3
-            rule3(moving3, pos, avg, stdev, a3, "A3")
+            rule3(m3dr, podr, avg, stdev, a3, "A3")
 
             # Rule 4
-            rule4(moving3, pos, avg, a3, "A3")
+            rule4(m3dr, podr, avg, a3, "A3")
 
             # Rule 5
-            rule5(moving3, pos, a3, "A3")
+            rule5(m3dr, podr, a3, "A3")
 
             # Rule 6
-            rule6(moving3, pos, avg, stdev, a3, "A3")
+            rule6(m3dr, podr, avg, stdev, a3, "A3")
             
             # Rule 7
-            rule7(moving3, pos, a3, "A3")
+            rule7(m3dr, podr, a3, "A3")
 
             # Rule 8
-            rule8(moving3, pos, avg, stdev, a3, "A3")
+            rule8(m3dr, podr, avg, stdev, a3, "A3")
            
-def animate_a5(i, xs, ys):
+def animate_a5(i):
+    global xs, ys
     if len(ys) > 2:
-        pos = (xs[4:])[-window_size:]
+        pos = (xs[4:])
+        podr = data_range(pos, window_size)
+
         avg = np.nanmean(ys)
         stdev = statistics.stdev(ys)
         # avg = (a+b) / 2
@@ -453,39 +435,45 @@ def animate_a5(i, xs, ys):
         # Moving averages
         if len(ys) > 5:
             a5.clear()
-            moving5 = moving_average(ys,5)[-window_size:]
-            # print("MA3", pos)
-            a5.plot(pos, moving5)
-            sigma_lines(a5, np.nanmean(moving5), statistics.stdev(moving5), pos)
+            moving5 = moving_average(ys,5)
+            m5dr = data_range(moving5, window_size)
+            # Very cool - I have consumed rebull for 69 working days in a row now
+            set_labels(a5, "5PT MOVING AVG")
+            a5.plot(podr, m5dr)
+            sigma_lines(a5, np.nanmean(m5dr), statistics.stdev(m5dr), podr)
 
             # Check for SPC rules
             # Rule 1
-            rule1(moving5, pos, [ucl,lcl], a5, "A5")
+            rule1(m5dr, podr, [ucl,lcl], a5, "A5")
 
             # Rule 2
-            rule2(moving5, pos, avg, stdev, a5, "A5")
+            rule2(m5dr, podr, avg, stdev, a5, "A5")
 
             # Rule 3
-            rule3(moving5, pos, avg, stdev, a5, "A5")
+            rule3(m5dr, podr, avg, stdev, a5, "A5")
 
             # Rule 4
-            rule4(moving5, pos, avg, a5, "A5")
+            rule4(m5dr, podr, avg, a5, "A5")
 
             # Rule 5
-            rule5(moving5, pos, a5, "A5")
+            rule5(m5dr, podr, a5, "A5")
 
             # Rule 6
-            rule6(moving5, pos, avg, stdev, a5, "A5")
+            rule6(m5dr, podr, avg, stdev, a5, "A5")
             
             # Rule 7
-            rule7(moving5, pos, a5, "A5")
+            rule7(m5dr, podr, a5, "A5")
 
             # Rule 8
-            rule8(moving5, pos, avg, stdev, a5, "A5")
+            rule8(m5dr, podr, avg, stdev, a5, "A5")
 
-def animate_a7(i, xs, ys):
+def animate_a7(i):
+    global xs, ys
     if len(ys) > 2:
-        pos = (xs[6:])[-window_size:]
+        pos = (xs[6:])
+        # Just hope that I can train models soon or else i cannot graduate
+        podr = data_range(pos, window_size)
+
         avg = np.nanmean(ys)
         stdev = statistics.stdev(ys)
         # avg = (a+b) / 2
@@ -496,35 +484,37 @@ def animate_a7(i, xs, ys):
         # Moving averages
         if len(ys) > 7:
             a7.clear()
-            moving7 = moving_average(ys,7)[-window_size:]
-            # print("MA3", pos)
-            a7.plot(pos, moving7)
-            sigma_lines(a7, np.nanmean(moving7), statistics.stdev(moving7), pos)
+            moving7 = moving_average(ys,7)
+            m7dr = data_range(moving7, window_size)
+            # please
+            set_labels(a7, "7PT MOVING AVG")
+            a7.plot(podr, m7dr)
+            sigma_lines(a7, np.nanmean(m7dr), statistics.stdev(m7dr), podr)
 
             # Check for SPC rules
             # Rule 1
-            rule1(moving7, pos, [ucl,lcl], a7, "A7")
+            rule1(m7dr, podr, [ucl,lcl], a7, "A7")
 
             # Rule 2
-            rule2(moving7, pos, avg, stdev, a7, "A7")
+            rule2(m7dr, podr, avg, stdev, a7, "A7")
 
             # Rule 3
-            rule3(moving7, pos, avg, stdev, a7, "A7")
+            rule3(m7dr, podr, avg, stdev, a7, "A7")
 
             # Rule 4
-            rule4(moving7, pos, avg, a7, "A7")
+            rule4(m7dr, podr, avg, a7, "A7")
 
             # Rule 5
-            rule5(moving7, pos, a7, "A7")
+            rule5(m7dr, podr, a7, "A7")
 
             # Rule 6
-            rule6(moving7, pos, avg, stdev, a7, "A7")
+            rule6(m7dr, podr, avg, stdev, a7, "A7")
             
             # Rule 7
-            rule7(moving7, pos, a7, "A7")
+            rule7(m7dr, podr, a7, "A7")
 
             # Rule 8
-            rule8(moving7, pos, avg, stdev, a7, "A7")
+            rule8(m7dr, podr, avg, stdev, a7, "A7")
 
 def changeSpeed(spd):
     global ani
@@ -539,28 +529,87 @@ def tkinit(tab):
 
 def ani_pause():
     ani.pause()
-    # ani_a3.pause()
-    # ani_a5.pause()
-    # ani_a7.pause()
+    ani_a3.pause()
+    ani_a5.pause()
+    ani_a7.pause()
 
 def ani_resume():
     ani.resume()
-    # ani_a3.resume()
-    # ani_a5.resume()
-    # ani_a7.resume()
+    ani_a3.resume()
+    ani_a5.resume()
+    ani_a7.resume()
         
 def checkforchange():
-    # Use mds hashing to check for change in the data file so that we can update the program if there is a change 
-    global hash
+    # Use md5 hashing to check for change in the data file so that we can update the program if there is a change 
+    global hash, timeint
     with open(fil, "rb") as f:
         if hash != hashlib.md5(f.read()).hexdigest():
             load(fil) # If there is change in the file "reload" the file with new changes
             hash = hashlib.md5(f.read()).hexdigest()
 
-    root.after(100, checkforchange)
+    root.after(timeint, checkforchange)
 
 if __name__ == '__main__':
-    dadu = 0
+    # Initial
+    conf = configparser.ConfigParser()
+    conf.read('config.ini')
+
+    plt.style.use('Solarize_Light2')
+    WRITE_DATA = True
+
+    # Global
+    # global timeint
+    # global ani
+    # global spcalerts
+    # global spcendpoints # This is to prevent repeated alerts when data points that triggered SPC goes off the screen and the algorithm recalculates and spams the alert messages
+    # global window_size
+    window_size = int(conf['spcmain']['winsize'])
+    spcalerts = set()
+    spcendpoints = set()
+    plt.style.use('ggplot')
+
+    # User configured ax labels
+    xa_label = conf['spcmain']['xa_label']
+    ya_label = conf['spcmain']['ya_label']
+
+    # Matplotlib
+    fig1, ax = plt.subplots()
+    fig2, a3 = plt.subplots()
+    fig3, a5 = plt.subplots()
+    fig4, a7 = plt.subplots()
+    xs = np.array([], copy=False, dtype=np.uint32)
+    ys = np.array([], copy=False)
+    print("Init XS/YS:", xs, ys)
+
+    # Tkinter
+    root = Tk.Tk()
+    root.grid_rowconfigure(1, weight=1)
+    root.grid_columnconfigure(0, weight=1)
+
+    # Save files
+    date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
+    # datefile = pd.read_csv(data)
+
+    # Use default values if none is specified
+    if len(sys.argv) < 2:
+        fil = "test.csv"
+    else:
+        fil = sys.argv[1]
+
+    if len(sys.argv) < 3 : # third argv is the speed
+        timeint = int(0.5 * 1000)
+    else:
+        try:    
+            timeint = int(float(sys.argv[2]))
+        except ValueError:    
+            timeint = int(0.5 * 1000)
+            print("That's not a float!")
+
+    if len(sys.argv) < 4: # Fourth argv is the logfile (this is useful for SPC alerts system that we going to build later)
+        logfile = "LOG-" + date_time + ".txt"
+    else:
+        logfile = sys.argv[3]
+
     timeint = 500
     # Set up plot to call animate() function periodically
     label = Tk.Label(root,text="1997 nba").grid(column=0, row=0)
@@ -569,8 +618,6 @@ if __name__ == '__main__':
     tab_m3 = Tk.Frame(tabs)
     tab_m5 = Tk.Frame(tabs)
     tab_m7 = Tk.Frame(tabs)
-    instructions = Tk.Label(root, text="Press any SPC button to trigger SPC rules, The rules may be triggered once every 30 time points")
-    instructions.grid(column=0, row=2)
 
     # Graph tabs
     canvas_main = FigureCanvasTkAgg(fig1, master=tab_raw)
@@ -597,13 +644,12 @@ if __name__ == '__main__':
     root.after(1000,lambda: tkinit(tab_raw))
     root.after(1200,ani_resume)
     root.after(2001, lambda: init_load(fil))
-    root.after(2001, lambda: load(fil))
-    root.after(2001, checkforchange)
+    root.after(2005, checkforchange)
     # root.after(1400,updateSpcAlertsText)
 
-    ani = animation.FuncAnimation(fig1, animate, fargs=(xs, ys), interval=timeint, init_func=ani_init, blit=False)
-    # ani_a3 = animation.FuncAnimation(fig2, animate_a3, fargs=(xs, ys), interval=timeint, init_func=ani_init, blit=False)
-    # ani_a5 = animation.FuncAnimation(fig3, animate_a5, fargs=(xs, ys), interval=timeint, init_func=ani_init, blit=False)
-    # ani_a7 = animation.FuncAnimation(fig4, animate_a7, fargs=(xs, ys), interval=timeint, init_func=ani_init, blit=False)
+    ani = animation.FuncAnimation(fig1, animate, interval=timeint, init_func=ani_init, blit=False)
+    ani_a3 = animation.FuncAnimation(fig2, animate_a3, interval=timeint, init_func=ani_init, blit=False)
+    ani_a5 = animation.FuncAnimation(fig3, animate_a5, interval=timeint, init_func=ani_init, blit=False)
+    ani_a7 = animation.FuncAnimation(fig4, animate_a7, interval=timeint, init_func=ani_init, blit=False)
 
     Tk.mainloop()

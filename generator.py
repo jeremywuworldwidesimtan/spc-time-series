@@ -1,32 +1,5 @@
-import random, time, datetime, csv, sys
+import random, time, datetime, csv, sys, configparser
 import tkinter as Tk
-
-random.seed(442)
-tk = Tk.Tk()
-WRITE_DATA = True
-
-global dadu
-global window_size
-global i
-global spcActive
-
-window_size = 30
-dadu = 0
-i = 0
-xs = []
-ys = []
-print(len(sys.argv))
-# Save files
-date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
-if (len(sys.argv) < 2): # second argv is name of file
-    data = "test.csv"
-else:
-    data = sys.argv[1]
-
-if len(sys.argv) < 3 or not (sys.argv[2].isnumeric()): # third argv is the speed
-    timeint = int(0.5 * 1000)
-else:
-    timeint = int(int(sys.argv[2]) * 1000)
 
 def write_csv(data_file):
     with open(data, 'a+') as outfile: # use a to append file instead of overwriting it
@@ -133,11 +106,12 @@ def outputData(min, max):
     global spcActive
     if spcActive:
         data_value = generator(i, min, max, dadu)
-        print(data_value)
+        if DEBUG:
+            print(data_value)
         i += 1
 
-        if WRITE_DATA:
-            write_csv([i, data_value])
+        # if WRITE_DATA: (It's an optional generator program now, this line is no longer necessary)
+        write_csv([i, data_value])
 
     tk.after(ms = timeint, func = lambda: outputData(low_value, high_value))
 
@@ -150,6 +124,45 @@ def spcActivate(spcActivate):
         spcActive = False
 
 if __name__ == '__main__':
+    # Read the config file to set some things up
+    conf = configparser.ConfigParser()
+    conf.read('config.ini')
+
+    DEBUG = conf['generator'].getboolean('deebaag')
+
+    tk = Tk.Tk()
+    print(sys.argv)
+
+    window_size = 30
+    dadu = 0
+    i = 0
+    xs = []
+    ys = []
+    print(len(sys.argv))
+    # Save files
+    date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
+    if (len(sys.argv) < 2): # second argv is name of file
+        data = "test.csv"
+    else:
+        data = sys.argv[1]
+
+    if len(sys.argv) < 3 : # third argv is the speed
+        timeint = int(0.5 * 1000)
+    else:
+        try:    
+            timeint = int(float(sys.argv[2]))
+        except ValueError:    
+            timeint = int(0.5 * 1000)
+            print("That's not a float!")
+
+    print(sys.argv[0], timeint)
+
+    if len(sys.argv) < 4 or not (sys.argv[3].isnumeric()): # fourth argv is the seed
+        seed = 42
+    else:
+        seed = int(sys.argv[3])
+
+    random.seed(seed)
     dadu = 0
     spcActive = False
     open(data,'w')
@@ -191,6 +204,8 @@ if __name__ == '__main__':
     spc_label.grid(column=0, row=1)
 
     buttons_frame.grid(column=0, row=1)
+    instructions = Tk.Label(tk, text="Press any SPC button to trigger SPC rules, The rules may be triggered once every 30 time points")
+    instructions.grid(column=0, row=2)
 
     tk.after(ms = 2000, func = lambda: outputData(low_value, high_value))
 
