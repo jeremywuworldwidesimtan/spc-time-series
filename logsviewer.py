@@ -1,7 +1,106 @@
 import hashlib, sys
-import tkinter as Tk
-from tkinter import ttk
+import customtkinter as Ctk
 from tkinter import filedialog
+
+class RuleFilterButtons(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master=master, **kwargs) # Apparently you need to have parenthesis after super for the class to work
+            
+        self.grid_columnconfigure(0, weight = 1)
+        self.grid_rowconfigure(0, weight = 1)
+
+        self.spcrule = Ctk.CTkLabel(self, text="Filter by SPC RULE:").grid(row=0,column=0,rowspan=2)
+        self.button_r1 = Ctk.CTkButton(self, text=f"Rule 1", command=lambda: changeFilter(log_backend, 0, f"Rule 1")).grid(row=0,column=1)
+        self.button_r2 = Ctk.CTkButton(self, text=f"Rule 2", command=lambda: changeFilter(log_backend, 0, f"Rule 2")).grid(row=0,column=2)
+        self.button_r3 = Ctk.CTkButton(self, text=f"Rule 3", command=lambda: changeFilter(log_backend, 0, f"Rule 3")).grid(row=0,column=3)
+        self.button_r4 = Ctk.CTkButton(self, text=f"Rule 4", command=lambda: changeFilter(log_backend, 0, f"Rule 4")).grid(row=0,column=4)
+        self.button_r5 = Ctk.CTkButton(self, text=f"Rule 5", command=lambda: changeFilter(log_backend, 0, f"Rule 5")).grid(row=1,column=1)
+        self.button_r6 = Ctk.CTkButton(self, text=f"Rule 6", command=lambda: changeFilter(log_backend, 0, f"Rule 6")).grid(row=1,column=2)
+        self.button_r7 = Ctk.CTkButton(self, text=f"Rule 7", command=lambda: changeFilter(log_backend, 0, f"Rule 7")).grid(row=1,column=3)
+        self.button_r8 = Ctk.CTkButton(self, text=f"Rule 8", command=lambda: changeFilter(log_backend, 0, f"Rule 8")).grid(row=1,column=4)
+        self.button_spcall = Ctk.CTkButton(self, text="ALL", command=lambda: changeFilter(log_backend, 0, '')).grid(row=0,column=9,rowspan=2, sticky='ns')
+
+class GraphFilterButtons(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master=master, **kwargs)
+            
+        self.grid_columnconfigure(0, weight = 1)
+        self.grid_rowconfigure(0, weight = 1)
+
+        self.graph = Ctk.CTkLabel(self, text="Filter by Graph:").grid(row=0,column=0,rowspan=2)
+        self.button_raw = Ctk.CTkButton(self, text="RAW DATA", command=lambda: changeFilter(log_backend, 1, "RAW")).grid(row=0,column=1)
+        self.button_a3 = Ctk.CTkButton(self, text="MOV. AVERAGE 3", command=lambda: changeFilter(log_backend, 1, "A3")).grid(row=0,column=2)
+        self.button_a5 = Ctk.CTkButton(self, text="MOV. AVERAGE 5", command=lambda: changeFilter(log_backend, 1, "A5")).grid(row=1,column=1)
+        self.button_a7 = Ctk.CTkButton(self, text="MOV. AVERAGE 7", command=lambda: changeFilter(log_backend, 1, "A7")).grid(row=1,column=2)
+        self.button_graphall = Ctk.CTkButton(self, text="ALL", command=lambda: changeFilter(log_backend, 1, '')).grid(row=0,column=3,rowspan=2,sticky='ns')
+
+class SeverityFilterButtons(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master=master, **kwargs)
+            
+        self.grid_columnconfigure(0, weight = 1)
+        self.grid_rowconfigure(0, weight = 1)
+
+        self.graph = Ctk.CTkLabel(self, text="Filter by Severity:").grid(row=0,column=0)
+        self.button_raw = Ctk.CTkButton(self, text="LOW PRIORITY", command=lambda: changeFilter(log_backend, 2, "Low Priority")).grid(row=0,column=1)
+        self.button_a3 = Ctk.CTkButton(self, text="WARNING", command=lambda: changeFilter(log_backend, 2, "Warning")).grid(row=0,column=2)
+        self.button_a5 = Ctk.CTkButton(self, text="CRITICAL", command=lambda: changeFilter(log_backend, 2, "Critical")).grid(row=0,column=3)
+        self.button_graphall = Ctk.CTkButton(self, text="ALL", command=lambda: changeFilter(log_backend, 2, '')).grid(row=0,column=4)
+
+class FilterButtons(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master=master, **kwargs)
+            
+        self.grid_columnconfigure(0, weight = 1)
+        self.grid_rowconfigure(0, weight = 1)
+
+        self.spcFilter = RuleFilterButtons(self)
+        self.spcFilter.grid(row=0,column=0,sticky='nsew')
+
+        self.graphFilter = GraphFilterButtons(self)
+        self.graphFilter.grid(row=1,column=0,sticky='nsew')
+
+        self.severityFilter = SeverityFilterButtons(self)
+        self.severityFilter.grid(row=2,column=0,sticky='nsew')
+
+        self.currentfilter = Ctk.CTkLabel(self, text="Current Filter: ['','']", font=(fond, 14))
+        self.currentfilter.grid(row=3,column=0,sticky='nsew')
+
+class SpcLogs(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master=master, **kwargs)
+            
+        self.grid_columnconfigure(0, weight = 1)
+        self.grid_rowconfigure(0, weight = 1)
+
+        # create scrollable alertbox
+        self.alerts = Ctk.CTkTextbox(self, activate_scrollbars=False, font=(fond, 16))
+        self.alerts.grid(row=0, column=0, sticky="nsew")
+
+        # create CTk scrollbar
+        self.scrollbar = Ctk.CTkScrollbar(self, command=self.alerts.yview)
+        self.scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # connect alertbox scroll event to CTk scrollbar
+        self.alerts.configure(yscrollcommand=self.scrollbar.set)
+
+class LogViewer(Ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("SPC Logs Viewer")
+
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.titleLabel = Ctk.CTkLabel(self, text="SPC Alerts Viewer", font=(fond_bold, 24), anchor='w')
+        self.titleLabel.pack(expand=False, fill='both', padx=12, pady=12)
+
+        self.spcLogs = SpcLogs(self)
+        self.spcLogs.pack(expand=True, fill='both', padx=12, pady=12)
+
+        self.filterButtons = FilterButtons(self)
+        self.filterButtons.pack(expand=False, fill='both', padx=12, pady=12)
 
 def changeFile():
     global file
@@ -24,32 +123,33 @@ def load(file):
 
 def changeFilter(logs, filterPos, filterKw):
     global filter
-    if filterPos in range(2):
+    if filterPos in range(3):
         filter[filterPos] = filterKw
     
-    currentfilter['text'] = f"Current Filter {str(filter)}"
+    lv.winfo_children()[2].winfo_children()[3].configure(text = f"Current Filter: {filter[0]} {filter[1]} {filter[2]}" if filter != ['','',''] else f"Current Filter: None")
     refresh_display(logfilter(logs, filter))
 
 def refresh_display(logs):
+    global alertbox
     try:
-        spc_alerts['state'] = 'normal'
-        spc_alerts.delete('1.0', 'end')
-        spc_alerts['state'] = 'disabled'
+        alertbox.configure(state='normal')
+        alertbox.delete('1.0', 'end')
+        alertbox.configure(state='disabled')
         display(logs)
     except:
         display(logs)
 
 def display(logs):
-    spc_alerts['state'] = 'normal'
+    alertbox.configure(state='normal')
     for log in logs:
-        if spc_alerts.index('end-1c')!='1.0':
-            spc_alerts.insert('end', '\n')
-        spc_alerts.insert('end', log)
-    spc_alerts['state'] = 'disabled'
+        if alertbox.index('end-1c')!='1.0':
+            alertbox.insert('end', '\n')
+        alertbox.insert('end', log)
+    alertbox.configure(state='disabled')
 
 def logfilter(log, filt = None):
     filtered_logs = []
-    if filt == None or filt == ['','']:
+    if filt == None or filt == ['','','']:
         #Difault
         filtered_logs = log
         return filtered_logs
@@ -60,6 +160,9 @@ def logfilter(log, filt = None):
                 filtered_logs.append(l)
         elif len(filt) == 2:
             if filt[0] in l and filt[1] in l:
+                filtered_logs.append(l)
+        elif len(filt) == 3:
+            if filt[0] in l and filt[1] in l and filt[2] in l:
                 filtered_logs.append(l)
 
     return filtered_logs
@@ -72,14 +175,13 @@ def changeListener():
         load(file) # If there is change in the file "reload" the file with new changes
         hash = newhash
 
-    tk.after(100, changeListener)
+    lv.after(100, changeListener)
 
 def quit_prog(tk):
     tk.withdraw()
     tk.quit()
 
 if __name__ == '__main__':
-    tk = Tk.Tk()
     hash = ""
 
     if (len(sys.argv) < 2): # second argv is name of file
@@ -89,50 +191,17 @@ if __name__ == '__main__':
         file = sys.argv[1]
 
     log_backend = []
-    filter = ['','']
+    filter = ['','','']
 
-    # SPC alert tabs
-    spc_alerts = Tk.Text(tk)
-    yscrollbar1 = ttk.Scrollbar(tk, orient = 'vertical', command = spc_alerts.yview)
-    spc_alerts['yscrollcommand'] = yscrollbar1.set
-    spc_alerts.grid(column = 0, row = 0, sticky = 'nwes')
-    yscrollbar1.grid(column = 1, row = 0, sticky = 'ns')
-    tk.grid_columnconfigure(0, weight = 1)
-    tk.grid_rowconfigure(0, weight = 1)
-    spc_alerts.grid(column=0,row=0, sticky='nsew')
+    fond = "Segoe UI"
+    fond_bold = "Segoe UI Bold"
+    lv = LogViewer()
+    alertbox = lv.winfo_children()[1].winfo_children()[0] # Targets the SPC alerts textbox
 
     display(logfilter(log_backend))
-    filter_buttons = Tk.Frame(tk)
-    spcrow = Tk.Frame(filter_buttons)
-    graphrow = Tk.Frame(filter_buttons)
-
-    spcrule = Tk.Label(spcrow, text="Filter by SPC RULE:").grid(row=0,column=0)
-    button_r1 = Tk.Button(spcrow, text=f"Rule 1", command=lambda: changeFilter(log_backend, 0, f"Rule 1")).grid(row=0,column=1)
-    button_r2 = Tk.Button(spcrow, text=f"Rule 2", command=lambda: changeFilter(log_backend, 0, f"Rule 2")).grid(row=0,column=2)
-    button_r3 = Tk.Button(spcrow, text=f"Rule 3", command=lambda: changeFilter(log_backend, 0, f"Rule 3")).grid(row=0,column=3)
-    button_r4 = Tk.Button(spcrow, text=f"Rule 4", command=lambda: changeFilter(log_backend, 0, f"Rule 4")).grid(row=0,column=4)
-    button_r5 = Tk.Button(spcrow, text=f"Rule 5", command=lambda: changeFilter(log_backend, 0, f"Rule 5")).grid(row=0,column=5)
-    button_r6 = Tk.Button(spcrow, text=f"Rule 6", command=lambda: changeFilter(log_backend, 0, f"Rule 6")).grid(row=0,column=6)
-    button_r7 = Tk.Button(spcrow, text=f"Rule 7", command=lambda: changeFilter(log_backend, 0, f"Rule 7")).grid(row=0,column=7)
-    button_r8 = Tk.Button(spcrow, text=f"Rule 8", command=lambda: changeFilter(log_backend, 0, f"Rule 8")).grid(row=0,column=8)
-    button_spcall = Tk.Button(spcrow, text="ALL", command=lambda: changeFilter(log_backend, 0, '')).grid(row=0,column=9)
-    spcrow.grid(row=0,column=0,sticky='nsew')
-
-    graph = Tk.Label(graphrow, text="Filter by Graph:").grid(row=0,column=0)
-    button_raw = Tk.Button(graphrow, text="RAW DATA", command=lambda: changeFilter(log_backend, 1, "RAW")).grid(row=0,column=1)
-    button_a3 = Tk.Button(graphrow, text="MOV. AVERAGE 3", command=lambda: changeFilter(log_backend, 1, "A3")).grid(row=0,column=2)
-    button_a5 = Tk.Button(graphrow, text="MOV. AVERAGE 5", command=lambda: changeFilter(log_backend, 1, "A5")).grid(row=0,column=3)
-    button_a7 = Tk.Button(graphrow, text="MOV. AVERAGE 7", command=lambda: changeFilter(log_backend, 1, "A7")).grid(row=0,column=4)
-    button_graphall = Tk.Button(graphrow, text="ALL", command=lambda: changeFilter(log_backend, 1, '')).grid(row=0,column=5)
-    graphrow.grid(row=1,column=0,sticky='nsew')
-
-    currentfilter = Tk.Label(filter_buttons, text="Current Filter: ['','']")
-    currentfilter.grid(row=2,column=0,sticky='nsew')
-
-    # button_load = Tk.Button(filter_buttons, text="Load File", command=lambda: changeFile()).grid(row=0,column=1)
-    filter_buttons.grid(column=0,row=1, sticky='nsew')
 
     load(file)
-    tk.after(2001, changeListener)
+    lv.after(1, lambda: changeFilter(log_backend, 0, ''))
+    lv.after(2001, changeListener)
     
-    Tk.mainloop()
+    lv.mainloop()

@@ -1,5 +1,48 @@
 import random, time, datetime, csv, sys, configparser
 import tkinter as Tk
+import pandas as pd
+import customtkinter as Ctk
+
+class Generator(Ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("SPC Data Generator (For Testing Purposes)")
+
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.titleLabel = Ctk.CTkLabel(self, text="SPC Generator", font=("Segoe UI Bold", 24), anchor='w')
+        self.titleLabel.grid(column=0, row=0, columnspan=2)
+
+        # Buttons to trigger the SPC rules
+        self.button0 = Ctk.CTkButton(self, text="No SPC", command=lambda: changeDadu(0))
+        self.button0.grid(column=0, row=1)
+        self.button1 = Ctk.CTkButton(self, text="SPC 1", command=lambda: changeDadu(1))
+        self.button1.grid(column=1, row=1)
+        self.button2 = Ctk.CTkButton(self, text="SPC 2", command=lambda: changeDadu(2))
+        self.button2.grid(column=2, row=1)
+        self.button3 = Ctk.CTkButton(self, text="SPC 3", command=lambda: changeDadu(3))
+        self.button3.grid(column=3, row=1)
+        self.button4 = Ctk.CTkButton(self, text="SPC 4", command=lambda: changeDadu(4))
+        self.button4.grid(column=4, row=1)
+        self.button5 = Ctk.CTkButton(self, text="SPC 5", command=lambda: changeDadu(5))
+        self.button5.grid(column=1, row=2)
+        self.button6 = Ctk.CTkButton(self, text="SPC 6", command=lambda: changeDadu(6))
+        self.button6.grid(column=2, row=2)
+        self.button7 = Ctk.CTkButton(self, text="SPC 7", command=lambda: changeDadu(7))
+        self.button7.grid(column=3, row=2)
+        self.button8 = Ctk.CTkButton(self, text="SPC 8", command=lambda: changeDadu(8))
+        self.button8.grid(column=4, row=2)
+        self.buttonOn = Ctk.CTkButton(self, text="Spc Start", command=lambda: spcActivate(True))
+        self.buttonOn.grid(column=5, row=1)
+        self.buttonOff = Ctk.CTkButton(self, text="Spc Stop", command=lambda: spcActivate(False))
+        self.buttonOff.grid(column=5, row=2)
+        self.spc_label = Ctk.CTkLabel(self, text="SPC: 0")
+        self.spc_label.grid(column=0, row=2)
+
+        instructions = Ctk.CTkLabel(self, text="Press any SPC button to trigger SPC rules, The rules may be triggered once every 30 time points")
+        instructions.grid(column=0, row=3, columnspan=6)
 
 def write_csv(data_file):
     with open(data, 'a+') as outfile: # use a to append file instead of overwriting it
@@ -99,7 +142,7 @@ def changeDadu(v):
     global dadu
     # print("dadu changed to", v)
     dadu = v
-    spc_label['text'] = f"SPC: {v}"
+    gen.winfo_children()[-2].configure(text=f"SPC: {v}")
 
 def outputData(min, max):
     global i
@@ -113,7 +156,7 @@ def outputData(min, max):
         # if WRITE_DATA: (It's an optional generator program now, this line is no longer necessary)
         write_csv([i, data_value])
 
-    tk.after(ms = timeint, func = lambda: outputData(low_value, high_value))
+    gen.after(ms = timeint, func = lambda: outputData(low_value, high_value))
 
 def spcActivate(spcActivate):
     # Turn SPC on or off
@@ -130,15 +173,13 @@ if __name__ == '__main__':
 
     DEBUG = conf['generator'].getboolean('deebaag')
 
-    tk = Tk.Tk()
-    print(sys.argv)
+    gen = Generator()
+    # print(sys.argv)
 
     window_size = 30
-    dadu = 0
-    i = 0
     xs = []
     ys = []
-    print(len(sys.argv))
+    # print(len(sys.argv))
     # Save files
     date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
     if (len(sys.argv) < 2): # second argv is name of file
@@ -155,7 +196,7 @@ if __name__ == '__main__':
             timeint = int(0.5 * 1000)
             print("That's not a float!")
 
-    print(sys.argv[0], timeint)
+    # print(sys.argv[0], timeint)
 
     if len(sys.argv) < 4 or not (sys.argv[3].isnumeric()): # fourth argv is the seed
         seed = 42
@@ -163,51 +204,29 @@ if __name__ == '__main__':
         seed = int(sys.argv[3])
 
     random.seed(seed)
+
+    try:
+        df = pd.read_csv(data, header=None)
+        print(max(df[0]))
+        i = max(df[0])
+    except pd.errors.EmptyDataError:
+        i = 0
+
     dadu = 0
     spcActive = False
-    open(data,'w')
-    if (len(sys.argv) < 5) or not ((sys.argv[3].isnumeric()) and (sys.argv[4].isnumeric())): # 3 argvs, filename, speed, min value, max value
+    open(data,'a+')
+    if (len(sys.argv) < 6) or not ((sys.argv[4].isnumeric()) and (sys.argv[5].isnumeric())): # 3 argvs, filename, rate, seed, min value, max value
         low_value = 1
         high_value = 101
     else:
-        low_value = int(sys.argv[3])
-        high_value = int(sys.argv[4])
+        if int(sys.argv[4]) < int(sys.argv[5]):
+            low_value = int(sys.argv[4])
+            high_value = int(sys.argv[5])
+        else:
+            high_value = int(sys.argv[4])
+            low_value = int(sys.argv[5])
     
-    # Set up plot to call animate() function periodically
-    label = Tk.Label(tk,text="spc data generator").grid(column=0, row=0)
+    gen.after(ms = timeint, func = lambda: outputData(low_value, high_value))
 
-    # Buttons to trigger the SPC rules
-    buttons_frame = Tk.Frame(tk)
-    button0 = Tk.Button(buttons_frame, text="No SPC", command=lambda: changeDadu(0))
-    button0.grid(column=0, row=0)
-    button1 = Tk.Button(buttons_frame, text="SPC 1", command=lambda: changeDadu(1))
-    button1.grid(column=1, row=0)
-    button2 = Tk.Button(buttons_frame, text="SPC 2", command=lambda: changeDadu(2))
-    button2.grid(column=2, row=0)
-    button3 = Tk.Button(buttons_frame, text="SPC 3", command=lambda: changeDadu(3))
-    button3.grid(column=3, row=0)
-    button4 = Tk.Button(buttons_frame, text="SPC 4", command=lambda: changeDadu(4))
-    button4.grid(column=4, row=0)
-    button5 = Tk.Button(buttons_frame, text="SPC 5", command=lambda: changeDadu(5))
-    button5.grid(column=1, row=1)
-    button6 = Tk.Button(buttons_frame, text="SPC 6", command=lambda: changeDadu(6))
-    button6.grid(column=2, row=1)
-    button7 = Tk.Button(buttons_frame, text="SPC 7", command=lambda: changeDadu(7))
-    button7.grid(column=3, row=1)
-    button8 = Tk.Button(buttons_frame, text="SPC 8", command=lambda: changeDadu(8))
-    button8.grid(column=4, row=1)
-    buttonOn = Tk.Button(buttons_frame, text="Spc Start", command=lambda: spcActivate(True))
-    buttonOn.grid(column=5, row=0)
-    buttonOff = Tk.Button(buttons_frame, text="Spc Stop", command=lambda: spcActivate(False))
-    buttonOff.grid(column=5, row=1)
-    spc_label = Tk.Label(buttons_frame, text="SPC: 0")
-    spc_label.grid(column=0, row=1)
-
-    buttons_frame.grid(column=0, row=1)
-    instructions = Tk.Label(tk, text="Press any SPC button to trigger SPC rules, The rules may be triggered once every 30 time points")
-    instructions.grid(column=0, row=2)
-
-    tk.after(ms = 2000, func = lambda: outputData(low_value, high_value))
-
-    Tk.mainloop()
+    gen.mainloop()
 

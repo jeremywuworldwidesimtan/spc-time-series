@@ -4,11 +4,26 @@ import matplotlib.animation as animation
 import numpy as np
 import pandas as pd
 import tkinter as Tk
-from tkinter import ttk
+import customtkinter as Ctk
 from spcmonitor import sigma_lines
 import statistics, math, datetime, sys, hashlib, snapshot, configparser
 
 WRITE_DATA = True
+
+class ExtMon(Ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("SPC Extended Monitor")
+
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.titleLabel = Ctk.CTkLabel(self, text="Extended Graph Viewer", font=("Segoe UI bold", 24), anchor='w')
+        self.titleLabel.pack(expand=False, fill='both', padx=12, pady=12)
+
+        canvas_main = FigureCanvasTkAgg(fig, master=self)
+        canvas_main.get_tk_widget().pack(fill='both', expand=True, padx=12, pady=12)
 
 # Open the file and run initial md5
 def init_load(csv):
@@ -35,6 +50,9 @@ def load(csv):
                     xs = np.append(xs, chunk[0].to_numpy().item())
                     ys = np.append(ys, chunk[1].to_numpy().item())
                     # print("Loaded XS/YS", xs, ys)
+                    if len(xs) >= 500:
+                        xs = np.delete(xs, 0)
+                        ys = np.delete(ys, 0)
                 # print(chunk[0].to_numpy().item())
     except:
         pass
@@ -70,23 +88,27 @@ def animate(i):
 
     xs_window1 = data_range(xs, 30, 1)
     ys_window1 = data_range(ys, 30, 1)
-    axs[0].plot(
-        list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[0]))), 
-        data_range(ys, period, ps[0]))
+    if ps[0] > 0:
+        axs[0].plot(
+            list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[0]))), 
+            data_range(ys, period, ps[0]))
     
-    axs[1].plot(
-        list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[1]))), 
-        data_range(ys, period, ps[1]))
+    if ps[1] > 0:
+        axs[1].plot(
+            list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[1]))), 
+            data_range(ys, period, ps[1]))
     
+    if ps[2] > 0:
     # print(period_data(xs, period, 3))
-    axs[2].plot(
-        list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[2]))), 
-        data_range(ys, period, ps[2]))
+        axs[2].plot(
+            list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[2]))), 
+            data_range(ys, period, ps[2]))
     
+    if ps[3] > 0:
     # print(period_data(xs, period, 4))
-    axs[3].plot(
-        list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[3]))), 
-        data_range(ys, period, ps[3]))
+        axs[3].plot(
+            list(map((lambda x: periodic_timepoint(x, period)), data_range(xs, period, ps[3]))), 
+            data_range(ys, period, ps[3]))
     
     # print(i)
     if len(xs) % 50 == 0 and len(xs) > 40:
@@ -105,7 +127,7 @@ def checkforchange():
             load(fil) # If there is change in the file "reload" the file with new changes
             hash = hashlib.md5(f.read()).hexdigest()
 
-    root.after(timeint, checkforchange)
+    em.after(timeint, checkforchange)
 
 def snapshot_check(index, snap_count, snapshot_data):
     global fil
@@ -142,7 +164,7 @@ if __name__ == '__main__':
     plt.style.use('ggplot')
     xs = np.array([], copy=False, dtype=np.uint32)
     ys = np.array([], copy=False)
-    print("Init XS/YS:", xs, ys)
+    # print("Init XS/YS:", xs, ys)
 
     fig, axs = plt.subplots(4,1)
     fig.tight_layout(pad=1.5)
@@ -151,9 +173,7 @@ if __name__ == '__main__':
         ax.tick_params(axis='x', rotation=90)
 
     # Tkinter
-    root = Tk.Tk()
-    root.grid_rowconfigure(1, weight=1)
-    root.grid_columnconfigure(0, weight=1)
+    em = ExtMon()
 
     # Save files
     date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
@@ -181,16 +201,12 @@ if __name__ == '__main__':
 
     # print(sys.argv[0], timeint)
 
-    # Graph tabs
-    canvas_main = FigureCanvasTkAgg(fig, master=root)
-    canvas_main.get_tk_widget().pack(fill='both', expand=True)
-
-    root.after(1, lambda: init_load(fil))
-    root.after(3, checkforchange)
+    em.after(1, lambda: init_load(fil))
+    em.after(3, checkforchange)
 
     # couldnot find a way to get old approach working so i think this is a compromise worth taking
     ani = animation.FuncAnimation(fig, animate, interval=timeint, init_func=ani_init, blit=False)
 
-    Tk.mainloop()
+    em.mainloop()
     # plt.draw()
     # plt.show()

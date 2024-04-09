@@ -4,8 +4,81 @@ import matplotlib.animation as animation
 import numpy as np
 import pandas as pd
 import tkinter as Tk
+import customtkinter as Ctk
 from tkinter import ttk
-import random, statistics, math, datetime, sys, hashlib, snapshot, configparser
+import statistics, math, datetime, sys, hashlib, snapshot, configparser, json
+
+class RawDataGraph(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        canvas_main = FigureCanvasTkAgg(fig1, master=self)
+        canvas_main.get_tk_widget().pack(expand=True, fill='both', padx=12, pady=12)
+
+class ThreeMAGraph(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        canvas_a3 = FigureCanvasTkAgg(fig2, master=self)
+        canvas_a3.get_tk_widget().pack(expand=True, fill='both', padx=12, pady=12)
+        
+class FiveMAGraph(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        canvas_a5 = FigureCanvasTkAgg(fig3, master=self)
+        canvas_a5.get_tk_widget().grid(column=0,row=0, sticky='nsew')
+
+class SevenMAGraph(Ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        canvas_a7 = FigureCanvasTkAgg(fig4, master=self)
+        canvas_a7.get_tk_widget().grid(column=0,row=0, sticky='nsew')
+
+class Tabs(Ctk.CTkTabview):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        # add tabs
+        self.add("Raw Data")
+        self.add("3-point MA")
+        self.add("5-point MA")
+        self.add("7-point MA")
+
+        # add widgets on tabs
+        self.rdg = RawDataGraph(master=self.tab("Raw Data"))
+        self.rdg.grid(row=0, column=0)
+
+        self.tdg = ThreeMAGraph(master=self.tab("3-point MA"))
+        self.tdg.grid(row=0, column=0)
+
+        self.fdg = FiveMAGraph(master=self.tab("5-point MA"))
+        self.fdg.grid(row=0, column=0)
+
+        self.sdg = SevenMAGraph(master=self.tab("7-point MA"))
+        self.sdg.grid(row=0, column=0)
+
+        self.after(200, lambda: self.set("3-point MA"))
+        self.after(400, lambda: self.set("5-point MA"))
+        self.after(600, lambda: self.set("7-point MA"))
+        self.after(800, lambda: self.set("Raw Data"))
+
+
+class SpcMon(Ctk.CTk):
+    def __init__(self):
+        super().__init__()
+
+        self.title("SPC Monitor")
+
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.titleLabel = Ctk.CTkLabel(self, text="SPC Monitor Program", font=(fond, 24), anchor='w')
+        self.titleLabel.grid(row=0, column=0, padx=12, pady=12)
+
+        self.tabview = Tabs(self)
+        self.tabview.grid(row=1, column=0, padx=12, pady=12, sticky='nsew')
 
 # Open the file and run initial md5
 def init_load(csv):
@@ -24,7 +97,11 @@ def load(csv):
                 if chunk[0].to_numpy().item() not in xs: # fix a graphical error
                     xs = np.append(xs, chunk[0].to_numpy().item())
                     ys = np.append(ys, chunk[1].to_numpy().item())
+                    # print(len(xs))
                     # print("Loaded XS/YS", xs, ys)
+                    if len(xs) >= 100:
+                        xs = np.delete(xs, 0)
+                        ys = np.delete(ys, 0)
                 # print(chunk[0].to_numpy().item())
     except:
         pass
@@ -77,7 +154,7 @@ def rule1(valueList, indexList, limits, plot, var_name):
     for i,y in enumerate(valueList):
         if y > ucl or y < lcl:
             plot.scatter(indexList[i], valueList[i], c="b", zorder=420)
-            rule1msg = f"({var_name}) ALERT: Rule 1 triggered at point {indexList[i]}"
+            rule1msg = f"({var_name}) {conf['spcalerts']['r1_severity']} ALERT: Rule 1 triggered at point {indexList[i]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r1_contact']])}" if conf['spcalerts']['r1_contact'] != '' else f"({var_name}) {conf['spcalerts']['r1_severity']} ALERT: Rule 1 triggered at point {indexList[i]}"
             if rule1msg not in spcalerts:
                 spcalerts.add(rule1msg)
                 print(rule1msg)
@@ -91,7 +168,7 @@ def rule2(valueList, indexList, avg, stdev, plot, var_name):
             if (valueList[i-1] > avg + (stdev * 2) or valueList[i-1] < avg - (stdev * 2)) and (valueList[i] > avg + (stdev * 2) or valueList[i] < avg - (stdev * 2)):
                 plot.scatter(indexList[i], valueList[i], c="b", zorder=420)
                 plot.scatter(indexList[i-1], valueList[i-1], c="b", zorder=420)
-                rule2msg = f"({var_name}) ALERT: Rule 2 triggered at point {indexList[i-1]} & {indexList[i]}"
+                rule2msg = f"({var_name}) {conf['spcalerts']['r2_severity']} ALERT: Rule 2 triggered at point {indexList[i-1]} & {indexList[i]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r2_contact']])}" if conf['spcalerts']['r2_contact'] != '' else f"({var_name}) {conf['spcalerts']['r2_severity']} ALERT: Rule 2 triggered at point {indexList[i-1]} & {indexList[i]}"
                 if rule2msg not in spcalerts:
                     spcalerts.add(rule2msg)
                     print(rule2msg)
@@ -116,7 +193,7 @@ def rule3(valueList, indexList, avg, stdev, plot, var_name):
     # print([i for i in r3_streaks if bool(i) == True])
     for st in r3_streaks:
         if st is not {} and len(st) == 4:
-            rule3msg = f"({var_name}) ALERT: Rule 3 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
+            rule3msg = f"({var_name}) {conf['spcalerts']['r3_severity']} ALERT: Rule 3 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r3_contact']])}" if conf['spcalerts']['r3_contact'] != '' else f"({var_name}) {conf['spcalerts']['r3_severity']} ALERT: Rule 3 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
                 plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule3msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
@@ -146,7 +223,7 @@ def rule4(valueList, indexList, avg, plot, var_name):
     # print(r4_streaks)
     for st in r4_streaks:
         if st is not {} and len(st) >= 8:
-            rule4msg = f"({var_name}) ALERT: Rule 4 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
+            rule4msg = f"({var_name}) {conf['spcalerts']['r4_severity']} ALERT: Rule 4 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r4_contact']])}" if conf['spcalerts']['r4_contact'] != '' else f"({var_name}) {conf['spcalerts']['r4_severity']} ALERT: Rule 4 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
                 plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule4msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
@@ -201,7 +278,7 @@ def rule5(valueList, indexList, plot, var_name):
     r5_streaks = r5_streaks_a + r5_streaks_b
     for st in r5_streaks:
         if st is not {} and len(st) == 6:
-            rule5msg = f"({var_name}) ALERT: Rule 5 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
+            rule5msg = f"({var_name}) {conf['spcalerts']['r5_severity']} ALERT: Rule 5 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r5_contact']])}" if conf['spcalerts']['r5_contact'] != '' else f"({var_name}) {conf['spcalerts']['r5_severity']} ALERT: Rule 5 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
                 plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule5msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
@@ -225,7 +302,7 @@ def rule6(valueList, indexList, avg, stdev, plot, var_name):
     
     for st in r6_streaks:
         if st is not {} and len(st) >= 15:
-            rule6msg = f"({var_name}) ALERT: Rule 6 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
+            rule6msg = f"({var_name}) {conf['spcalerts']['r6_severity']} ALERT: Rule 6 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r6_contact']])}" if conf['spcalerts']['r6_contact'] != '' else f"({var_name}) {conf['spcalerts']['r6_severity']} ALERT: Rule 6 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
                 plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule6msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
@@ -260,7 +337,7 @@ def rule7(valueList, indexList, plot, var_name):
     # print(r7_streaks)
     for st in r7_streaks:
         if st is not {} and len(st) >= 14:
-            rule7msg = f"({var_name}) ALERT: Rule 7 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
+            rule7msg = f"({var_name}) {conf['spcalerts']['r7_severity']} ALERT: Rule 7 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r7_contact']])}" if conf['spcalerts']['r7_contact'] != '' else f"({var_name}) {conf['spcalerts']['r7_severity']} ALERT: Rule 7 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
                 plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule7msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
@@ -285,7 +362,7 @@ def rule8(valueList, indexList, avg, stdev, plot, var_name):
 
     for st in r8_streaks:
         if st is not {} and len(st) >= 8:
-            rule8msg = f"({var_name}) ALERT: Rule 8 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
+            rule8msg = f"({var_name}) {conf['spcalerts']['r8_severity']} ALERT: Rule 8 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}, Please contact {parse_usergroup(ug[conf['spcalerts']['r8_contact']])}" if conf['spcalerts']['r3_contact'] != '' else f"({var_name}) {conf['spcalerts']['r8_severity']} ALERT: Rule 8 triggered from point {indexList[min(st.keys())]} to {indexList[max(st.keys())]}"
             for k,v in st.items():
                 plot.scatter(indexList[k], valueList[k], c="b", zorder=420)
             if (rule8msg not in spcalerts) and (indexList[max(st.keys())] not in spcendpoints):
@@ -299,6 +376,7 @@ def rule8(valueList, indexList, avg, stdev, plot, var_name):
 def data_range(data_list, wsize):
     return data_list[-(wsize):]
 
+# We could try to move the SPC algorithms out of the graph so it does not rely on a plot to work but its too late and i want to end my SPC project faster
 def animate(i):
     global xs, ys
     # Limit x and y lists to 30 items
@@ -377,13 +455,6 @@ def animate_a3(i):
         pos = (xs[2:])
         podr = data_range(pos,window_size)
 
-        avg = np.nanmean(ys)
-        stdev = statistics.stdev(ys)
-        # avg = (a+b) / 2
-        # stdev = math.sqrt(((b-a) ** 2)/12)
-        ucl = avg + (stdev * 3)
-        lcl = avg - (stdev * 3)
-
         # Moving averages
         if len(ys) > 3:
             a3.clear()
@@ -392,6 +463,14 @@ def animate_a3(i):
             # print("MA3", pos)
             set_labels(a3, "3PT MOVING AVG")
             a3.plot(podr, m3dr)
+
+            # Fix bug: avg and stdev of MA graph should be based on MA values
+            avg = np.nanmean(moving3)
+            stdev = statistics.stdev(moving3)
+            # avg = (a+b) / 2
+            # stdev = math.sqrt(((b-a) ** 2)/12)
+            ucl = avg + (stdev * 3)
+            lcl = avg - (stdev * 3)
             sigma_lines(a3, np.nanmean(m3dr), statistics.stdev(m3dr), podr)
 
             # Check for SPC rules
@@ -425,12 +504,6 @@ def animate_a5(i):
         pos = (xs[4:])
         podr = data_range(pos, window_size)
 
-        avg = np.nanmean(ys)
-        stdev = statistics.stdev(ys)
-        # avg = (a+b) / 2
-        # stdev = math.sqrt(((b-a) ** 2)/12)
-        ucl = avg + (stdev * 3)
-        lcl = avg - (stdev * 3)
 
         # Moving averages
         if len(ys) > 5:
@@ -440,6 +513,12 @@ def animate_a5(i):
             # Very cool - I have consumed rebull for 69 working days in a row now
             set_labels(a5, "5PT MOVING AVG")
             a5.plot(podr, m5dr)
+
+            avg = np.nanmean(moving5)
+            stdev = statistics.stdev(moving5)
+
+            ucl = avg + (stdev * 3)
+            lcl = avg - (stdev * 3)
             sigma_lines(a5, np.nanmean(m5dr), statistics.stdev(m5dr), podr)
 
             # Check for SPC rules
@@ -474,12 +553,6 @@ def animate_a7(i):
         # Just hope that I can train models soon or else i cannot graduate
         podr = data_range(pos, window_size)
 
-        avg = np.nanmean(ys)
-        stdev = statistics.stdev(ys)
-        # avg = (a+b) / 2
-        # stdev = math.sqrt(((b-a) ** 2)/12)
-        ucl = avg + (stdev * 3)
-        lcl = avg - (stdev * 3)
 
         # Moving averages
         if len(ys) > 7:
@@ -489,6 +562,12 @@ def animate_a7(i):
             # please
             set_labels(a7, "7PT MOVING AVG")
             a7.plot(podr, m7dr)
+
+            avg = np.nanmean(moving7)
+            stdev = statistics.stdev(moving7)
+
+            ucl = avg + (stdev * 3)
+            lcl = avg - (stdev * 3)
             sigma_lines(a7, np.nanmean(m7dr), statistics.stdev(m7dr), podr)
 
             # Check for SPC rules
@@ -522,22 +601,6 @@ def changeSpeed(spd):
         print(spd)
         spd = int(spd)
         ani.event_source.interval = spd
-
-def tkinit(tab):
-    # print("Fmm")
-    tabs.select(tab)
-
-def ani_pause():
-    ani.pause()
-    ani_a3.pause()
-    ani_a5.pause()
-    ani_a7.pause()
-
-def ani_resume():
-    ani.resume()
-    ani_a3.resume()
-    ani_a5.resume()
-    ani_a7.resume()
         
 def checkforchange():
     # Use md5 hashing to check for change in the data file so that we can update the program if there is a change 
@@ -547,13 +610,118 @@ def checkforchange():
             load(fil) # If there is change in the file "reload" the file with new changes
             hash = hashlib.md5(f.read()).hexdigest()
 
-    root.after(timeint, checkforchange)
+    sm.after(timeint, checkforchange)
+
+def parse_usergroup(k):
+    ug_info = ""
+
+    try:
+        if len(k) == 1:
+            ug_info = k[0]
+        elif len(k) == 2:
+            ug_info = k[0] + " and " + k[1]
+        elif len(k) >= 3:
+            for n in range(len(k) - 2):
+                ug_info += f"{k[n]}, "
+            ug_info += k[-2] + " and " + k[-1]
+    except: #Flexibility
+        ug_info = k
+
+    return ug_info
+
+# Test for external use
+class Main():
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        # Initial
+        conf = configparser.ConfigParser()
+        conf.read('config.ini')
+
+        fond = "Segoe UI Bold"
+        plt.style.use('Solarize_Light2')
+        WRITE_DATA = True
+
+        # Global
+        # global timeint
+        # global ani
+        # global spcalerts
+        # global spcendpoints # This is to prevent repeated alerts when data points that triggered SPC goes off the screen and the algorithm recalculates and spams the alert messages
+        # global window_size
+        window_size = int(conf['spcmain']['winsize'])
+        spcalerts = set()
+        spcendpoints = set()
+        plt.style.use('ggplot')
+
+        # User configured ax labels
+        xa_label = conf['spcmain']['xa_label']
+        ya_label = conf['spcmain']['ya_label']
+
+        # Matplotlib
+        fig1, ax = plt.subplots()
+        fig2, a3 = plt.subplots()
+        fig3, a5 = plt.subplots()
+        fig4, a7 = plt.subplots()
+        xs = np.array([], copy=False, dtype=np.uint32)
+        ys = np.array([], copy=False)
+        # print("Init XS/YS:", xs, ys)
+
+        # Tkinter
+        sm = SpcMon()
+
+        # Save files
+        date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
+        # datefile = pd.read_csv(data)
+
+        # Use default values if none is specified
+        if len(sys.argv) < 2:
+            fil = "test2.csv"
+        else:
+            fil = sys.argv[1]
+
+        if len(sys.argv) < 3 : # third argv is the speed
+            timeint = int(0.5 * 1000)
+        else:
+            try:    
+                timeint = int(float(sys.argv[2]))
+            except ValueError:    
+                timeint = int(0.5 * 1000)
+                print("That's not a float!")
+
+        if len(sys.argv) < 4: # Fourth argv is the logfile (this is useful for SPC alerts system that we going to build later)
+            logfile = "LOG-" + date_time + ".txt"
+        else:
+            logfile = sys.argv[3]
+
+        timeint = 500
+
+        with open(logfile, 'r') as log:
+            existing_log = log.read().split('\n')
+            # print(existing_log)
+        
+        for l in existing_log:
+            spcalerts.add(l)
+
+        # Load all the graph animations before starting generation
+        sm.after(1000, lambda: init_load(fil))
+        sm.after(1200, checkforchange)
+
+        ani = animation.FuncAnimation(fig1, animate, interval=timeint, init_func=ani_init, blit=False)
+        ani_a3 = animation.FuncAnimation(fig2, animate_a3, interval=timeint, init_func=ani_init, blit=False)
+        ani_a5 = animation.FuncAnimation(fig3, animate_a5, interval=timeint, init_func=ani_init, blit=False)
+        ani_a7 = animation.FuncAnimation(fig4, animate_a7, interval=timeint, init_func=ani_init, blit=False)
+
+        sm.mainloop()
 
 if __name__ == '__main__':
     # Initial
     conf = configparser.ConfigParser()
     conf.read('config.ini')
 
+    with open('usergroups.json') as f:
+        ug = json.load(f)
+
+    fond = "Segoe UI Bold"
     plt.style.use('Solarize_Light2')
     WRITE_DATA = True
 
@@ -579,12 +747,10 @@ if __name__ == '__main__':
     fig4, a7 = plt.subplots()
     xs = np.array([], copy=False, dtype=np.uint32)
     ys = np.array([], copy=False)
-    print("Init XS/YS:", xs, ys)
+    # print("Init XS/YS:", xs, ys)
 
     # Tkinter
-    root = Tk.Tk()
-    root.grid_rowconfigure(1, weight=1)
-    root.grid_columnconfigure(0, weight=1)
+    sm = SpcMon()
 
     # Save files
     date_time = datetime.datetime.now().strftime('%Y.%m.%d-%H.%M.%S.%f')
@@ -592,7 +758,7 @@ if __name__ == '__main__':
 
     # Use default values if none is specified
     if len(sys.argv) < 2:
-        fil = "test.csv"
+        fil = "test2.csv"
     else:
         fil = sys.argv[1]
 
@@ -611,45 +777,21 @@ if __name__ == '__main__':
         logfile = sys.argv[3]
 
     timeint = 500
-    # Set up plot to call animate() function periodically
-    label = Tk.Label(root,text="1997 nba").grid(column=0, row=0)
-    tabs = ttk.Notebook(root)
-    tab_raw = Tk.Frame(tabs)
-    tab_m3 = Tk.Frame(tabs)
-    tab_m5 = Tk.Frame(tabs)
-    tab_m7 = Tk.Frame(tabs)
 
-    # Graph tabs
-    canvas_main = FigureCanvasTkAgg(fig1, master=tab_raw)
-    canvas_main.get_tk_widget().grid(column=0,row=0, sticky='nsew')
-    canvas_a3 = FigureCanvasTkAgg(fig2, master=tab_m3)
-    canvas_a3.get_tk_widget().grid(column=0,row=0, sticky='nsew') 
-    canvas_a5 = FigureCanvasTkAgg(fig3, master=tab_m5)
-    canvas_a5.get_tk_widget().grid(column=0,row=0, sticky='nsew')
-    canvas_a7 = FigureCanvasTkAgg(fig4, master=tab_m7)
-    canvas_a7.get_tk_widget().grid(column=0,row=0, sticky='nsew')
-
-    tabs.add(tab_raw, text="Raw Data", sticky='nsew')
-    tabs.add(tab_m3, text="3-datapoint MA", sticky='nsew')
-    tabs.add(tab_m5, text="5-datapoint MA", sticky='nsew')
-    tabs.add(tab_m7, text="7-datapoint MA", sticky='nsew')
-    tabs.grid(column=0,row=1, sticky='nsew')
+    with open(logfile, 'r') as log:
+        existing_log = log.read().split('\n')
+        # print(existing_log)
+    
+    for l in existing_log:
+        spcalerts.add(l)
 
     # Load all the graph animations before starting generation
-    root.after(200, ani_pause)
-    root.after(400,lambda: tkinit(tab_m3))
-    root.after(600,lambda: tkinit(tab_m5))
-    root.after(800,lambda: tkinit(tab_m7))
-    # root.after(1000,lambda: tkinit(tab_alerts))
-    root.after(1000,lambda: tkinit(tab_raw))
-    root.after(1200,ani_resume)
-    root.after(2001, lambda: init_load(fil))
-    root.after(2005, checkforchange)
-    # root.after(1400,updateSpcAlertsText)
+    sm.after(1000, lambda: init_load(fil))
+    sm.after(1200, checkforchange)
 
     ani = animation.FuncAnimation(fig1, animate, interval=timeint, init_func=ani_init, blit=False)
     ani_a3 = animation.FuncAnimation(fig2, animate_a3, interval=timeint, init_func=ani_init, blit=False)
     ani_a5 = animation.FuncAnimation(fig3, animate_a5, interval=timeint, init_func=ani_init, blit=False)
     ani_a7 = animation.FuncAnimation(fig4, animate_a7, interval=timeint, init_func=ani_init, blit=False)
 
-    Tk.mainloop()
+    sm.mainloop()
