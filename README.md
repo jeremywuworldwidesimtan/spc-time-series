@@ -13,3 +13,6 @@ program.
 Configuration for the program can be accessed via the GUI interface for
 configuration by running the configure.py file
 
+
+# Notes
+
