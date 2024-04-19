@@ -28,7 +28,6 @@ class App(Ctk.CTk):
 
         # print(values)
 
-        # Wtf m i doin here
         # List order
         # (0-17) [rate, toogle, filename, logname, prefix, generator, debug, seed, min, max, winsize, xlabel, ylabel, period, 1, 2, 3, 4]
         # (18-33) [r1s, r1c, r2s, r2c, r3s, r3c, r4s, r4c, r5s, r5c, r6s, r6c, r7s, r7c, r8s, r8c]

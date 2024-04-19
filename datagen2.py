@@ -103,7 +103,6 @@ def draw(base, trend, random_amp, random_base, sin_amp, sin_period, sin_base, si
     elif rule6:
         # Trigger pattern that can satisfy rule 6 
         if i in range(rpm, rpm+15):
-            # You know I gotta do it to em
             # Run the time series function and deamplify the noise
             yl.append(round(random.randint((base + 3*(random_amp//8) + random_base), (base + 6*(random_amp//8) + random_base))))
         else:

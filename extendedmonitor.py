@@ -38,13 +38,6 @@ def load(csv):
     global xs, ys
     try:
         with pd.read_csv(csv, chunksize=1, header=None) as reader:
-            # copilot alternative 1
-            # [xs.append(chunk[0].to_numpy().item()) and ys.append(chunk[1].to_numpy().item()) for chunk in reader if chunk[0].to_numpy().item() not in xs]
-            # copilot alt 2
-            # new_list = [(chunk[0].to_numpy().item(), chunk[1].to_numpy().item()) for chunk in reader if chunk[0].to_numpy().item() not in xs]
-            # xs, ys = zip(*new_list) # unzip the list of tuples into two lists
-            # print(f"[{new_list}]")
-            # print(xs, ys)
             for chunk in reader:
                 if chunk[0].to_numpy().item() not in xs: # fix a graphical error
                     xs = np.append(xs, chunk[0].to_numpy().item())
@@ -168,7 +161,6 @@ if __name__ == '__main__':
 
     fig, axs = plt.subplots(4,1)
     fig.tight_layout(pad=1.5)
-    # At least I did something today 3/4/24
     for ax in np.ndarray.flatten(axs):
         ax.tick_params(axis='x', rotation=90)
 

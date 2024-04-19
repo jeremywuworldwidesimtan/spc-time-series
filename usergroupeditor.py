@@ -65,7 +65,7 @@ class UGTextBox(Ctk.CTkFrame):
             self.textbox.insert('end', u)
 
 if __name__ == '__main__':
-    # LOAD USERGROUP JASON
+    # LOAD USERGROUP JSON
     with open('usergroups.json') as f:
         ug = json.load(f)
 

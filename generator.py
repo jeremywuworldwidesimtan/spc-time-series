@@ -52,7 +52,6 @@ def write_csv(data_file):
 def generator(i, min, max, dadu = 0):
     global xs
     global ys
-    # global dadu # This is the line that got me stuck but i think it is cool now
     a = min
     b = max
     rv = random.randint(a,b) + random.random()

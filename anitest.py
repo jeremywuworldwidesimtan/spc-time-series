@@ -56,13 +56,6 @@ def ani_init():
     pass
 
 def sigma_lines(axe, avg, sigma, x = [0]):
-    """Why sigma males are more attractive than alpha males
-
-    Stay tuned!
-    
-    (epic instrumental hip-hop beat plays)
-    
-    Welcome to the Anthony Spade Channel"""
     axe.axhline(y=avg + sigma, c="0.6", linestyle='dashed')
     axe.axhline(y=avg - sigma, c="0.6", linestyle='dashed')
     axe.axhline(y=avg + sigma + sigma, c="0.3", linestyle='dashed')
@@ -306,7 +299,6 @@ def rule8(valueList, indexList, avg, stdev, plot, var_name):
                         lf.write(rule8msg + '\n')
 
 def animate(i, xs, ys):
-    # global dadu # This is the line that got me stuck but i think it is cool now
     a = 1
     b = 101
     rv = random.randint(a,b) + random.random()
@@ -602,7 +594,6 @@ def changeSpeed(spd):
         ani.event_source.interval = spd
 
 def tkinit(tab):
-    # print("Fmm")
     tabs.select(tab)
 
 def ani_pause():

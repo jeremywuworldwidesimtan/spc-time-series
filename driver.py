@@ -1,7 +1,6 @@
 import subprocess, datetime, configparser, os
 
 if __name__ == '__main__':
-   # Who cares about multithreading if u use nampi array and did a few mods u will get slightly faster speeds
    conf = configparser.ConfigParser()
    conf.read('config.ini')
 

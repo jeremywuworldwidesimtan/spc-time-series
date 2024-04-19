@@ -115,13 +115,6 @@ def ani_init():
     pass
 
 def sigma_lines(axe, avg, sigma, x = [0]):
-    """Why sigma males are more attractive than alpha males
-
-    Stay tuned!
-    
-    (epic instrumental hip-hop beat plays)
-    
-    Welcome to the Anthony Spade Channel"""
     axe.axhline(y=avg + sigma, c="0.6", linestyle='dashed')
     axe.axhline(y=avg - sigma, c="0.6", linestyle='dashed')
     axe.axhline(y=avg + sigma + sigma, c="0.3", linestyle='dashed')
@@ -510,7 +503,6 @@ def animate_a5(i):
             a5.clear()
             moving5 = moving_average(ys,5)
             m5dr = data_range(moving5, window_size)
-            # Very cool - I have consumed rebull for 69 working days in a row now
             set_labels(a5, "5PT MOVING AVG")
             a5.plot(podr, m5dr)
 
@@ -550,7 +542,6 @@ def animate_a7(i):
     global xs, ys
     if len(ys) > 2:
         pos = (xs[6:])
-        # Just hope that I can train models soon or else i cannot graduate
         podr = data_range(pos, window_size)
 
 
@@ -559,7 +550,6 @@ def animate_a7(i):
             a7.clear()
             moving7 = moving_average(ys,7)
             m7dr = data_range(moving7, window_size)
-            # please
             set_labels(a7, "7PT MOVING AVG")
             a7.plot(podr, m7dr)
 
